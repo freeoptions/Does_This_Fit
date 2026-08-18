@@ -1,0 +1,25 @@
+# Android Studio and local machine settings
+.idea/
+*.iml
+local.properties
+
+# Gradle and Kotlin caches
+.gradle/
+.kotlin/
+**/build/
+
+# Native build outputs
+.externalNativeBuild/
+.cxx/
+
+# Packaged applications and signing material
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+
+# Runtime captures and operating-system metadata
+captures/
+.DS_Store
+Thumbs.db
