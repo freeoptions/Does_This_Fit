@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import androidx.annotation.DrawableRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -128,6 +130,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -930,9 +933,12 @@ private fun PreviewScreen(
 @Composable
 private fun DesktopMock(image: WallpaperImage, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
-        val designScale = minOf(maxWidth / 1080f, maxHeight / 2400f)
+        // The reference desktop in image 1 is 1080 x 2296. Keep this canvas fixed so
+        // every wallpaper is judged against the same real launcher geometry.
+        val designHeight = 2296f
+        val designScale = minOf(maxWidth / 1080f, maxHeight / designHeight)
         val canvasWidth = 1080f * designScale.value
-        val canvasHeight = 2400f * designScale.value
+        val canvasHeight = designHeight * designScale.value
         var displayedPath by remember { mutableStateOf(image.path) }
         var loadingPath by remember { mutableStateOf<String?>(null) }
 
@@ -940,30 +946,33 @@ private fun DesktopMock(image: WallpaperImage, modifier: Modifier = Modifier) {
             loadingPath = image.path.takeUnless { it == displayedPath }
         }
 
-        Box(Modifier.size(canvasWidth.dp, canvasHeight.dp)) {
+        // Paint the wallpaper across the complete preview viewport. Only the launcher
+        // overlay keeps the reference canvas size; this removes immersive-mode gutters
+        // without stretching or moving the real icon grid.
+        AsyncImage(
+            model = File(displayedPath),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            onSuccess = {
+                if (loadingPath == displayedPath) loadingPath = null
+            }
+        )
+        loadingPath?.let { targetPath ->
             AsyncImage(
-                model = File(displayedPath),
+                model = File(targetPath),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
                 onSuccess = {
-                    if (loadingPath == displayedPath) loadingPath = null
+                    if (loadingPath == targetPath) displayedPath = targetPath
+                },
+                onError = {
+                    if (loadingPath == targetPath) loadingPath = null
                 }
             )
-            loadingPath?.let { targetPath ->
-                AsyncImage(
-                    model = File(targetPath),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onSuccess = {
-                        if (loadingPath == targetPath) displayedPath = targetPath
-                    },
-                    onError = {
-                        if (loadingPath == targetPath) loadingPath = null
-                    }
-                )
-            }
+        }
+        Box(Modifier.size(canvasWidth.dp, canvasHeight.dp)) {
             DesktopOverlay(scale = designScale.value)
         }
     }
@@ -975,97 +984,80 @@ private fun DesktopOverlay(scale: Float) {
 
     Box(Modifier.fillMaxSize()) {
         Text(
-            "22:22",
+            "20:15",
             modifier = Modifier.offset(px(86f), px(145f)),
             color = Color.Black,
             fontSize = (130f * scale).sp,
             fontWeight = FontWeight.Light
         )
         Text(
-            "8月18日周二 · 七月初五",
+            "9月9日周三 · 七月廿五",
             modifier = Modifier.offset(px(104f), px(382f)),
             color = Color.Black,
             fontSize = (36f * scale).sp
         )
         Text(
-            "当前位置 30°C",
+            "当前位置 25°C",
             modifier = Modifier.offset(px(690f), px(382f)),
             color = Color.Black,
             fontSize = (36f * scale).sp
         )
         Text(
-            "今日 32°/26°",
+            "今日 30°/22°",
             modifier = Modifier.offset(px(104f), px(460f)),
             color = Color.Black,
             fontSize = (36f * scale).sp
         )
         Text(
-            "体感 34°C",
+            "体感 28°C",
             modifier = Modifier.offset(px(774f), px(460f)),
             color = Color.Black,
             fontSize = (36f * scale).sp
         )
         Text(
-            "空气质量 101 (不健康)",
+            "空气质量 111 (不健康)",
             modifier = Modifier.offset(px(104f), px(538f)),
             color = Color.Black,
             fontSize = (36f * scale).sp
         )
         Text(
-            "← 2.7 米/秒",
+            "↓ 2.3 米/秒",
             modifier = Modifier.offset(px(756f), px(538f)),
             color = Color.Black,
             fontSize = (36f * scale).sp
         )
 
-        WeatherSun(
+        WeatherMoon(
             modifier = Modifier.offset(px(824f), px(168f)).size(px(158f))
         )
 
-        DesktopIcon(::px, 48f, 700f, "Authenticator", DesktopAppStyle.AUTHENTICATOR)
-        DesktopFolder(
-            px(252f), px(700f), ::px, "B站",
-            listOf(DesktopAppStyle.PORTRAIT, DesktopAppStyle.BABY, DesktopAppStyle.BOT, DesktopAppStyle.TODO)
-        )
-        DesktopIcon(::px, 456f, 700f, "baby", DesktopAppStyle.BABY)
-        DesktopFolder(
-            px(660f), px(700f), ::px, "don't skip",
-            listOf(
-                DesktopAppStyle.NOTE, DesktopAppStyle.PAW, DesktopAppStyle.PLANET,
-                DesktopAppStyle.SHARE, DesktopAppStyle.VIDEO, DesktopAppStyle.MT,
-                DesktopAppStyle.SHIELD, DesktopAppStyle.MARKET, DesktopAppStyle.KOMI
-            )
-        )
-        DesktopFolder(
-            px(864f), px(700f), ::px, "小工具",
-            listOf(
-                DesktopAppStyle.NOTE, DesktopAppStyle.DESCRIPTION, DesktopAppStyle.FILES,
-                DesktopAppStyle.TREE, DesktopAppStyle.CLEANER
-            )
-        )
+        DesktopRasterIcon(::px, 48f, 700f, "Authenticator", DesktopAsset.AUTHENTICATOR, imageOffsetY = 3f)
+        DesktopRasterFolder(::px, 252f, 700f, "B站", DesktopAsset.B_STATION_FOLDER, imageOffsetY = 3f)
+        DesktopRasterIcon(::px, 456f, 700f, "baby", DesktopAsset.BABY, imageOffsetY = 3f)
+        DesktopRasterFolder(::px, 660f, 700f, "don't skip", DesktopAsset.DONT_SKIP_FOLDER, imageOffsetY = 3f)
+        DesktopRasterFolder(::px, 864f, 700f, "小工具", DesktopAsset.SMALL_TOOLS_FOLDER, imageOffsetY = 3f)
 
-        DesktopIcon(::px, 48f, 1015f, "FlashWall", DesktopAppStyle.PORTRAIT)
-        DesktopIcon(::px, 252f, 1015f, "录音机", DesktopAppStyle.RECORDER)
-        DesktopIcon(::px, 456f, 1015f, "微信", DesktopAppStyle.WECHAT)
-        DesktopIcon(::px, 864f, 1015f, "Share", DesktopAppStyle.SHARE)
+        DesktopRasterIcon(::px, 48f, 1015f, "FlashWall", DesktopAsset.FLASHWALL)
+        DesktopRasterIcon(::px, 252f, 1015f, "录音机", DesktopAsset.RECORDER)
+        DesktopRasterIcon(::px, 456f, 1015f, "微信", DesktopAsset.WECHAT_TOP)
+        DesktopRasterIcon(::px, 864f, 1015f, "Share", DesktopAsset.SHARE)
 
-        DesktopIcon(::px, 48f, 1328f, "微信", DesktopAppStyle.WECHAT)
-        DesktopIcon(::px, 252f, 1328f, "TODO", DesktopAppStyle.TODO)
-        DesktopIcon(::px, 456f, 1328f, "设置", DesktopAppStyle.SETTINGS)
-        DesktopIcon(::px, 660f, 1328f, "BotFather", DesktopAppStyle.BOT)
-        DesktopIcon(::px, 864f, 1328f, "企业微信", DesktopAppStyle.WEWORK)
+        DesktopRasterIcon(::px, 48f, 1328f, "微信", DesktopAsset.WECHAT_THIRD)
+        DesktopRasterIcon(::px, 252f, 1328f, "TODO", DesktopAsset.TODO)
+        DesktopRasterIcon(::px, 456f, 1328f, "设置", DesktopAsset.SETTINGS)
+        DesktopRasterIcon(::px, 660f, 1328f, "BotFather", DesktopAsset.BOTFATHER)
+        DesktopRasterIcon(::px, 864f, 1328f, "企业微信", DesktopAsset.WEWORK)
 
-        DesktopIcon(::px, 48f, 1640f, "质感文件", DesktopAppStyle.FILES)
-        DesktopIcon(::px, 252f, 1640f, "知识星球", DesktopAppStyle.PLANET)
-        DesktopIcon(::px, 456f, 1640f, "雪豹速清", DesktopAppStyle.CLEANER)
-        DesktopIcon(::px, 660f, 1640f, "Komi Store", DesktopAppStyle.KOMI)
-        DesktopIcon(::px, 864f, 1640f, "MT管理器", DesktopAppStyle.MT)
+        DesktopRasterIcon(::px, 48f, 1640f, "质感文件", DesktopAsset.FILES)
+        DesktopRasterIcon(::px, 456f, 1640f, "雪豹速清", DesktopAsset.CLEANER)
+        DesktopRasterIcon(::px, 660f, 1640f, "Komi Store", DesktopAsset.KOMI)
+        DesktopRasterIcon(::px, 864f, 1640f, "MT管理器", DesktopAsset.MT)
 
-        DockIcon(::px, 48f, 2032f, DesktopAppStyle.CAMERA)
-        DockIcon(::px, 252f, 2032f, DesktopAppStyle.PHONE)
-        DockIcon(::px, 456f, 2032f, DesktopAppStyle.GALLERY)
-        DockIcon(::px, 660f, 2032f, DesktopAppStyle.MARKET)
-        DockIcon(::px, 864f, 2032f, DesktopAppStyle.TELEGRAM_PORTRAIT)
+        DesktopRasterDockIcon(::px, 48f, 2032f, DesktopAsset.CAMERA)
+        DesktopRasterDockIcon(::px, 252f, 2032f, DesktopAsset.PHONE)
+        DesktopRasterDockIcon(::px, 456f, 2032f, DesktopAsset.GALLERY)
+        DesktopRasterDockIcon(::px, 660f, 2032f, DesktopAsset.MARKET)
+        DesktopRasterDockIcon(::px, 864f, 2032f, DesktopAsset.TELEGRAM_PORTRAIT)
 
         Row(
             modifier = Modifier.offset(px(405f), px(1915f)).width(px(290f)),
@@ -1079,9 +1071,154 @@ private fun DesktopOverlay(scale: Float) {
             }
         }
         Box(
-            modifier = Modifier.offset(px(337f), px(2348f)).size(px(400f), px(13f)).clip(CircleShape)
+            modifier = Modifier.offset(px(337f), px(2255f)).size(px(400f), px(13f)).clip(CircleShape)
                 .background(Color.Black.copy(alpha = 0.92f))
         )
+    }
+}
+
+private enum class DesktopAsset(@DrawableRes val resourceId: Int) {
+    AUTHENTICATOR(R.drawable.desktop_authenticator),
+    B_STATION_FOLDER(R.drawable.desktop_b_station_folder),
+    BABY(R.drawable.desktop_baby),
+    DONT_SKIP_FOLDER(R.drawable.desktop_dont_skip_folder),
+    SMALL_TOOLS_FOLDER(R.drawable.desktop_small_tools_folder),
+    FLASHWALL(R.drawable.desktop_flashwall),
+    RECORDER(R.drawable.desktop_recorder),
+    WECHAT_TOP(R.drawable.desktop_wechat),
+    SHARE(R.drawable.desktop_share),
+    WECHAT_THIRD(R.drawable.desktop_wechat_2),
+    TODO(R.drawable.desktop_todo),
+    SETTINGS(R.drawable.desktop_settings),
+    BOTFATHER(R.drawable.desktop_botfather),
+    WEWORK(R.drawable.desktop_wework),
+    FILES(R.drawable.desktop_files),
+    CLEANER(R.drawable.desktop_cleaner),
+    KOMI(R.drawable.desktop_komi),
+    MT(R.drawable.desktop_mt),
+    CAMERA(R.drawable.desktop_camera),
+    PHONE(R.drawable.desktop_phone),
+    GALLERY(R.drawable.desktop_gallery),
+    MARKET(R.drawable.desktop_market),
+    TELEGRAM_PORTRAIT(R.drawable.desktop_telegram_portrait)
+}
+
+@Composable
+private fun DesktopRasterIcon(
+    px: (Float) -> Dp,
+    x: Float,
+    y: Float,
+    label: String,
+    asset: DesktopAsset,
+    imageOffsetY: Float = 0f
+) {
+    Column(
+        modifier = Modifier.offset(px(x), px(y)).width(px(180f)),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(asset.resourceId),
+            contentDescription = label,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                // The bitmap is already cropped to the icon bounds. The Column centers
+                // a 144px image inside a 180px slot, so nudge it 4px left to match
+                // the reference launcher grid rather than adding a second margin.
+                .offset(x = px(-4f), y = px(imageOffsetY))
+                .size(px(144f))
+                .clip(RoundedCornerShape(px(31f)))
+        )
+        Spacer(Modifier.height(px(12f)))
+        Text(
+            label,
+            color = Color.White,
+            fontSize = (30f * px(1f).value).sp,
+            lineHeight = (35f * px(1f).value).sp,
+            maxLines = 2,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun DesktopRasterFolder(
+    px: (Float) -> Dp,
+    x: Float,
+    y: Float,
+    label: String,
+    asset: DesktopAsset,
+    imageOffsetY: Float = 0f
+) {
+    Column(
+        modifier = Modifier.offset(px(x), px(y)).width(px(180f)),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(asset.resourceId),
+            contentDescription = label,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .offset(x = px(-4f), y = px(imageOffsetY))
+                .size(px(144f))
+                .clip(RoundedCornerShape(px(31f)))
+        )
+        Spacer(Modifier.height(px(12f)))
+        Text(
+            label,
+            color = Color.White,
+            fontSize = (30f * px(1f).value).sp,
+            lineHeight = (34f * px(1f).value).sp,
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun DesktopRasterDockIcon(px: (Float) -> Dp, x: Float, y: Float, asset: DesktopAsset) {
+    Image(
+        painter = painterResource(asset.resourceId),
+        contentDescription = null,
+        contentScale = ContentScale.FillBounds,
+        modifier = Modifier
+            .offset(px(x), px(y))
+            .then(Modifier.offset(x = px(14f)))
+            .size(px(144f))
+            .clip(RoundedCornerShape(px(31f)))
+    )
+}
+
+@Composable
+private fun WeatherMoon(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val unit = size.minDimension
+        val center = Offset(size.width * 0.52f, size.height * 0.50f)
+        val moon = Path().apply {
+            moveTo(center.x + unit * 0.18f, center.y - unit * 0.38f)
+            cubicTo(
+                center.x - unit * 0.08f, center.y - unit * 0.35f,
+                center.x - unit * 0.29f, center.y - unit * 0.14f,
+                center.x - unit * 0.27f, center.y + unit * 0.12f
+            )
+            cubicTo(
+                center.x - unit * 0.25f, center.y + unit * 0.38f,
+                center.x + unit * 0.03f, center.y + unit * 0.43f,
+                center.x + unit * 0.24f, center.y + unit * 0.29f
+            )
+            cubicTo(
+                center.x + unit * 0.02f, center.y + unit * 0.23f,
+                center.x - unit * 0.01f, center.y + unit * 0.02f,
+                center.x + unit * 0.03f, center.y - unit * 0.12f
+            )
+            cubicTo(
+                center.x + unit * 0.06f, center.y - unit * 0.25f,
+                center.x + unit * 0.12f, center.y - unit * 0.33f,
+                center.x + unit * 0.18f, center.y - unit * 0.38f
+            )
+            close()
+        }
+        drawPath(moon, Color(0xFFB7CDFF))
     }
 }
 
