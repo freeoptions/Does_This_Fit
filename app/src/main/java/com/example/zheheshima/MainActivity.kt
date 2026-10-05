@@ -176,6 +176,10 @@ fun ZheHeShiMaApp(viewModel: MainViewModel = viewModel()) {
     var previewIndex by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    BackHandler(enabled = previewItems == null && selectedTab != 0) {
+        selectedTab = 0
+    }
+
     LaunchedEffect(message) {
         message?.let { notice ->
             snackbarHostState.showSnackbar(notice)
